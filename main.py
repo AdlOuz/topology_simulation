@@ -15,7 +15,7 @@ class NetworkTopology:
         # Randomly connect nodes to form a network
         for i in range(self.num_nodes):
             for j in range(i + 1, self.num_nodes):
-                if random.random() > 0.5:  # Adjust probability for connection
+                if random.random() > 0.6:  # Adjust probability for connection
                     weight = random.randint(1, 10)  # Assign a random weight/cost
                     self.adjacency_matrix[i][j] = weight
                     self.adjacency_matrix[j][i] = weight  # Since it's an undirected graph
@@ -42,23 +42,27 @@ class NetworkTopologyGUI:
         self.network = None
         self.canvas = None
 
-        self.create_topology_button = tk.Button(self.root, text="Create Topology", command=self.create_topology)
+        self.label_text = tk.StringVar()
+        self.label_text.set("Number of Nodes")
+        self.label = tk.Label(self.root, textvariable=self.label_text)
+        self.label.pack()
+
+        self.num_nodes_entry = tk.Entry(self.root)
+        self.num_nodes_entry.pack(side="top")  # Centering with padding
+
+        self.num_nodes_entry.bind("<KeyRelease>", self.validate_input)  # Validate input on key release
+
+        self.create_topology_button = tk.Button(self.root, text="Create Topology", command=self.generate_topology, state=tk.DISABLED)
         self.create_topology_button.pack()
 
         self.root.protocol("WM_DELETE_WINDOW", self.exit_application)
 
-    def create_topology(self):
-        self.num_nodes_window = tk.Toplevel(self.root)
-        self.num_nodes_window.title("Enter Number of Nodes")
-
-        self.num_nodes_label = tk.Label(self.num_nodes_window, text="Enter the number of nodes:")
-        self.num_nodes_label.pack()
-
-        self.num_nodes_entry = tk.Entry(self.num_nodes_window)
-        self.num_nodes_entry.pack()
-
-        self.confirm_button = tk.Button(self.num_nodes_window, text="Confirm", command=self.generate_topology)
-        self.confirm_button.pack()
+    def validate_input(self, event):
+        input_text = self.num_nodes_entry.get()
+        if input_text.isdigit() and int(input_text) > 0:
+            self.create_topology_button['state'] = tk.NORMAL
+        else:
+            self.create_topology_button['state'] = tk.DISABLED
 
     def generate_topology(self):
         if self.canvas:
@@ -67,11 +71,9 @@ class NetworkTopologyGUI:
             self.canvas = None
 
         self.num_nodes = int(self.num_nodes_entry.get())
-        self.num_nodes_window.destroy()
 
         self.network = NetworkTopology(self.num_nodes)
         self.visualize_network()
-
 
     def visualize_network(self):
         G = self.network.visualize_topology()
