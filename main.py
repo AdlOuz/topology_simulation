@@ -82,18 +82,25 @@ class NetworkTopology:
     
     def visualize_route(self, source, destination):
         G = nx.Graph()
+
+        forwarding_edges = [] 
+
         for dst in range(self.num_nodes):
-            edge_color = 'red' if dst == destination else 'black'
             if dst != source:
                 start = source
                 next_node = self.forwarding_table[source][dst]
                 while next_node != dst:
-                    G.add_edge(start, next_node, weight=self.adjacency_matrix[start][next_node], color=edge_color)
+                    G.add_edge(start, next_node, weight=self.adjacency_matrix[start][next_node])
+                    if dst == destination:
+                        forwarding_edges.append((start, next_node))
                     start =  next_node
                     next_node = self.forwarding_table[next_node][dst]
-                G.add_edge(start, next_node, weight=self.adjacency_matrix[start][next_node], color=edge_color)
+                G.add_edge(start, next_node, weight=self.adjacency_matrix[start][next_node])
+                if dst == destination:
+                        forwarding_edges.append((start, next_node))
 
-        return G
+
+        return G, forwarding_edges
 
 class NetworkTopologyGUI:
     def __init__(self, root):
@@ -101,9 +108,14 @@ class NetworkTopologyGUI:
         self.root.title("Network Topology Visualization")
         self.root.geometry("800x600")
 
-        self.num_nodes = None
         self.network = None
+
+        self.num_nodes = None
+        self.source_node = None
+        self.destination_node = None
+        
         self.canvas = None
+        self.algo_canvas = None
 
         self.label_text = tk.StringVar()
         self.label_text.set("Number of Nodes")
@@ -135,6 +147,15 @@ class NetworkTopologyGUI:
         else:
             self.create_topology_button['state'] = tk.DISABLED
 
+    def validate_source_destination(self, event):
+        source_text = self.source_entry.get()
+        destination_text = self.destination_entry.get()
+
+        if source_text.isdigit() and destination_text.isdigit() and int(source_text) >= 0 and int(destination_text) >= 0:
+            self.execute_button['state'] = tk.NORMAL
+        else:
+            self.execute_button['state'] = tk.DISABLED
+
     def generate_topology(self):
         if self.canvas:
             plt.close()
@@ -165,37 +186,77 @@ class NetworkTopologyGUI:
             self.canvas.get_tk_widget().pack()
 
     def link_state_routing(self):
-        self.network.generate_forwarding_table()
-        # Print Forwarding Table
-        for node, routing_table in self.network.routing_table.items():
-            print(f"Routing Table for Node {node}: {routing_table}")
-
-        # Print Forwarding Table
-        for node, forwarding_info in self.network.forwarding_table.items():
-            print(f"Forwarding Table for Node {node}: {forwarding_info}")
-
-        if self.network:
-            G = self.network.visualize_route(0, 4)
-
-            plt.figure()
-            pos = nx.spring_layout(G)
-            labels = nx.get_edge_attributes(G, 'weight')
-            nx.draw(G, pos, with_labels=True)
-            nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-            self.canvas = FigureCanvasTkAgg(plt.gcf(), master=self.root)
-            self.canvas.draw()
-            self.canvas.get_tk_widget().pack()
-
+        self.open_algorithm_window("Link State Routing")
 
     def distance_vector_routing(self):
-        # Implement functionality for Distance Vector Routing
-        pass
+        self.open_algorithm_window("Distance Vector Routing")
+
+    def open_algorithm_window(self, algorithm):
+        self.algorithm_window = tk.Toplevel(self.root)
+        self.algorithm_window.title(f"{algorithm} Parameters")
+        self.algorithm_window.geometry("800x600")
+
+        source_label = tk.Label(self.algorithm_window, text="Source Node:")
+        source_label.pack()
+
+        self.source_entry = tk.Entry(self.algorithm_window)
+        self.source_entry.pack()
+
+        destination_label = tk.Label(self.algorithm_window, text="Destination Node:")
+        destination_label.pack()
+
+        self.destination_entry = tk.Entry(self.algorithm_window)
+        self.destination_entry.pack()
+
+        self.source_entry.bind("<KeyRelease>", self.validate_source_destination)
+        self.destination_entry.bind("<KeyRelease>", self.validate_source_destination)
+
+        self.execute_button = tk.Button(self.algorithm_window, text=f"Execute {algorithm}", state=tk.DISABLED,
+                                        command=lambda: self.execute_algorithm(algorithm, self.source_entry.get(), self.destination_entry.get()))
+        self.execute_button.pack()
+
+        self.algorithm_window.protocol("WM_DELETE_WINDOW", self.exit_algo)
+
+        self.algorithm_window.grab_set()
+
+    def execute_algorithm(self, algorithm, source, destination):
+        # You can perform specific actions for each algorithm with source and destination inputs
+        # For now, let's just print the values entered
+        print(f"Algorithm: {algorithm}")
+        print(f"Source Node: {source}")
+        print(f"Destination Node: {destination}")
+
+        if self.algo_canvas:
+            plt.close()
+            self.algo_canvas.get_tk_widget().pack_forget()
+            self.algo_canvas = None
+
+        if algorithm == "Link State Routing":
+            self.network.generate_forwarding_table()
+
+            if self.network:
+                G, forwarding_edges = self.network.visualize_route(int(source), int(destination))
+                edge_colors = ["red" if edge in forwarding_edges else "black" for edge in G.edges()]
+                plt.figure()
+                pos = nx.spring_layout(G)
+                labels = nx.get_edge_attributes(G, 'weight')
+                nx.draw(G, pos, with_labels=True, edge_color=edge_colors)
+                nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+                self.algo_canvas = FigureCanvasTkAgg(plt.gcf(), master=self.algorithm_window)
+                self.algo_canvas.draw()
+                self.algo_canvas.get_tk_widget().pack()
 
     def exit_application(self):
         if self.canvas:
             plt.close()
         self.root.destroy()
         sys.exit()
+
+    def exit_algo(self):
+        if self.algo_canvas:
+            plt.close()
+        self.algorithm_window.grab_release()
+        self.algorithm_window.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
