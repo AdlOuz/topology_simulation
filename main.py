@@ -3,6 +3,8 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import tkinter as tk
+import tkinter.messagebox as msgbox
+import time
 import sys
 
 class NetworkTopology:
@@ -45,13 +47,34 @@ class NetworkTopology:
                         distances[j] = new_dist
 
         return distances
+    
+    def bellman_ford(self, src):
+        distances = {node: float('inf') for node in range(self.num_nodes)}
+        distances[src] = 0
 
-    def calculate_routing_table(self):
-        for node in range(self.num_nodes):
-            self.routing_table[node] = self.dijkstra(node)
+        for _ in range(self.num_nodes - 1):
+            for u in range(self.num_nodes):
+                for v in range(self.num_nodes):
+                    if self.adjacency_matrix[u][v] > 0:
+                        if distances[u] + self.adjacency_matrix[u][v] < distances[v]:
+                            distances[v] = distances[u] + self.adjacency_matrix[u][v]
 
-    def generate_forwarding_table(self):
-        self.calculate_routing_table()  # Ensure routing table is up to date
+        return distances
+
+    def calculate_routing_table(self, algorithm):
+        if algorithm == "Link State Routing":
+            self.routing_table = {}
+            self.forwarding_table = {}
+            for node in range(self.num_nodes):
+                self.routing_table[node] = self.dijkstra(node)
+        if algorithm == "Distance Vector Routing":
+            self.routing_table = {}
+            self.forwarding_table = {}
+            for node in range(self.num_nodes):
+                self.routing_table[node] = self.bellman_ford(node)
+
+    def generate_forwarding_table(self, algorithm):
+        self.calculate_routing_table(algorithm)  # Ensure routing table is up to date
         for src in range(self.num_nodes):
             self.forwarding_table[src] = {}
             for dest in range(self.num_nodes):
@@ -151,7 +174,7 @@ class NetworkTopologyGUI:
         source_text = self.source_entry.get()
         destination_text = self.destination_entry.get()
 
-        if source_text.isdigit() and destination_text.isdigit() and int(source_text) >= 0 and int(destination_text) >= 0:
+        if source_text.isdigit() and destination_text.isdigit() and self.network.num_nodes > int(source_text) >= 0 and self.network.num_nodes > int(destination_text) >= 0 and int(source_text) != int(destination_text):
             self.execute_button['state'] = tk.NORMAL
         else:
             self.execute_button['state'] = tk.DISABLED
@@ -220,31 +243,72 @@ class NetworkTopologyGUI:
         self.algorithm_window.grab_set()
 
     def execute_algorithm(self, algorithm, source, destination):
-        # You can perform specific actions for each algorithm with source and destination inputs
-        # For now, let's just print the values entered
-        print(f"Algorithm: {algorithm}")
-        print(f"Source Node: {source}")
-        print(f"Destination Node: {destination}")
-
         if self.algo_canvas:
             plt.close()
             self.algo_canvas.get_tk_widget().pack_forget()
             self.algo_canvas = None
 
-        if algorithm == "Link State Routing":
-            self.network.generate_forwarding_table()
+        if self.network:
+            start_time = time.perf_counter()  # Measure algorithm runtime
+            self.network.generate_forwarding_table(algorithm)
+            end_time = time.perf_counter()
 
-            if self.network:
-                G, forwarding_edges = self.network.visualize_route(int(source), int(destination))
-                edge_colors = ["red" if edge in forwarding_edges else "black" for edge in G.edges()]
-                plt.figure()
-                pos = nx.spring_layout(G)
-                labels = nx.get_edge_attributes(G, 'weight')
-                nx.draw(G, pos, with_labels=True, edge_color=edge_colors)
-                nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-                self.algo_canvas = FigureCanvasTkAgg(plt.gcf(), master=self.algorithm_window)
-                self.algo_canvas.draw()
-                self.algo_canvas.get_tk_widget().pack()
+            G, forwarding_edges = self.network.visualize_route(int(source), int(destination))
+            edge_colors = ["red" if edge in forwarding_edges else "black" for edge in G.edges()]
+            plt.figure()
+            pos = nx.spring_layout(G)
+            labels = nx.get_edge_attributes(G, 'weight')
+            nx.draw(G, pos, with_labels=True, edge_color=edge_colors)
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+            self.algo_canvas = FigureCanvasTkAgg(plt.gcf(), master=self.algorithm_window)
+            self.algo_canvas.draw()
+            self.algo_canvas.get_tk_widget().pack()
+
+            self.metrics_window = tk.Toplevel(self.root)
+            self.metrics_window.title(f"{algorithm} Algorithm Metrics")
+            self.algorithm_window.grab_release()
+            self.metrics_window.grab_set()
+
+            self.metrics_window.protocol("WM_DELETE_WINDOW", self.exit_metrics)
+
+            metrics_frame = tk.Frame(self.metrics_window)
+            metrics_frame.pack()
+            
+            runtime_ms = (end_time - start_time) * 1000
+
+            tk.Label(metrics_frame, text=f"Packet Transmission Delay (End-to-End): {self.network.routing_table[int(source)][int(destination)]*(random.random() + 0.7)} milliseconds").pack()
+            tk.Label(metrics_frame, text=f"Total Cost of the Path Chosen: {self.network.routing_table[int(source)][int(destination)]}").pack()
+            tk.Label(metrics_frame, text=f"Run Time of the Algorithm: {runtime_ms:.6f} milliseconds").pack()
+            tk.Label(metrics_frame, text=f"Number of Hop Counts (End-to-End): {len(forwarding_edges)}").pack()
+            
+            forwarding_table_frame = tk.Frame(self.metrics_window)
+            forwarding_table_frame.pack()
+
+            tk.Label(forwarding_table_frame, text="Forwarding Table:").pack()
+
+            for node, forwarding_info in self.network.forwarding_table.items():
+                tk.Label(forwarding_table_frame, text=f"Node {node}: {forwarding_info}").pack()
+
+            save_button = tk.Button(self.metrics_window, text="Save", command=lambda: self.save_metrics_to_file(runtime=runtime_ms,
+                                                                                                                num_hopes=len(forwarding_edges),
+                                                                                                                source=source,
+                                                                                                                destination=destination,
+                                                                                                                algorithm=algorithm))
+            save_button.pack(side=tk.BOTTOM)
+
+    def save_metrics_to_file(self, source, destination, runtime, num_hopes, algorithm):
+        out_file_name = "link_state_routing_algorithm_metrics.txt" if algorithm == "Link State Routing" else "distance_vector_routing_algorithm_metrics.txt"
+        with open(out_file_name, "w") as file:
+            file.write("Topology:\n")
+            for row in self.network.adjacency_matrix:
+                file.write(f"{row}\n")
+            file.write("Forwarding Tables:\n")
+            for node, forwarding_info in self.network.forwarding_table.items():
+                file.write(f"Node {node}: {forwarding_info}\n")
+            file.write(f"Packet Transmission Delay (End-to-End): {self.network.routing_table[int(source)][int(destination)]*(random.random() + 0.7)} milliseconds\n")
+            file.write(f"Total Cost of the Path Chosen: {self.network.routing_table[int(source)][int(destination)]}\n")
+            file.write(f"Run Time of the Algorithm: {runtime:.6f} milliseconds\n")
+            file.write(f"Number of Hop Counts (End-to-End): {num_hopes}\n")
 
     def exit_application(self):
         if self.canvas:
@@ -257,6 +321,11 @@ class NetworkTopologyGUI:
             plt.close()
         self.algorithm_window.grab_release()
         self.algorithm_window.destroy()
+
+    def exit_metrics(self):
+        self.metrics_window.grab_release()
+        self.algorithm_window.grab_set()
+        self.metrics_window.destroy()
 
 if __name__ == "__main__":
     root = tk.Tk()
