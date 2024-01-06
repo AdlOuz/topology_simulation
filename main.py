@@ -150,24 +150,26 @@ class NetworkTopology:
         for src in range(self.num_nodes):
             self.forwarding_table[src] = {}  # Initialize forwarding table for the source node
             
+            available_nodes = []  # Initialize available_nodes from the source node
+
+            # Collect available nodes based on adjacency matrix for the source node
+            for node, weight in enumerate(self.adjacency_matrix[src]):
+                if weight != 0:
+                    available_nodes.append(node)
+
             # Iterate through all destination nodes
             for dest in range(self.num_nodes):
                 if dest != src:  # Skip setting forwarding for the same source and destination nodes
                     next_hop = None  # Initialize the next hop for routing
                     
-                    available_nodes = []
-                    
-                    # Collect available nodes based on adjacency matrix for the source node
-                    for node, weight in enumerate(self.adjacency_matrix[src]):
-                        if weight != 0:
-                            available_nodes.append(node)
-                    
                     # Check for possible intermediate nodes for forwarding
                     for intermediate_node in available_nodes:
-                        # Check if the intermediate node helps in forwarding to the destination
-                        if self.routing_table[src][intermediate_node] + self.routing_table[intermediate_node][dest] == self.routing_table[src][dest]:
-                            next_hop = intermediate_node  # Set the intermediate node as the next hop
-                            break
+                        # If the destination is equal to the intermediate node skip it since self.routing_table[intermediate_node][dest] will be zero and mess wtih the algorithm
+                        if intermediate_node != dest:
+                            # Check if the intermediate node helps in forwarding to the destination
+                            if self.routing_table[src][intermediate_node] + self.routing_table[intermediate_node][dest] == self.routing_table[src][dest]:
+                                next_hop = intermediate_node  # Set the intermediate node as the next hop
+                                break
                     
                     # Set the forwarding based on whether a next hop is found or not
                     if next_hop is None:
@@ -467,6 +469,14 @@ class NetworkTopologyGUI:
             # Write the network's adjacency matrix to the file
             for row in self.network.adjacency_matrix:
                 file.write(f"\t{row}\n")
+
+            file.write("\n")    
+
+            file.write("Routing:\n")
+            
+            # Write the network's adjacency matrix to the file
+            for node, routing_info in self.network.routing_table.items():
+                file.write(f"\tNode {node}: {routing_info}\n")
             
             file.write("\n")
             file.write("Forwarding Tables:\n")
@@ -478,8 +488,9 @@ class NetworkTopologyGUI:
             # Write various routing metrics to the file
             file.write("\n")
             file.write(f"Source Node: {source}\n")
-            file.write(f"Destination Node: {destination}\n")           
-            file.write(f"Packet Transmission Delay (End-to-End): {self.network.routing_table[int(source)][int(destination)]*(random.random() + 0.7)} milliseconds\n")
+            file.write(f"Destination Node: {destination}\n")
+            delay = self.network.routing_table[int(source)][int(destination)]*(random.random() + 0.7)           
+            file.write(f"Packet Transmission Delay (End-to-End): {delay:.6f} milliseconds\n")
             file.write(f"Total Cost of the Path Chosen: {self.network.routing_table[int(source)][int(destination)]}\n")
             file.write(f"Run Time of the Algorithm: {runtime:.6f} milliseconds\n")
             file.write(f"Number of Hop Counts (End-to-End): {num_hopes}\n")
