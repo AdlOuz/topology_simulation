@@ -1,3 +1,5 @@
+#Adil Oğuz Alpaslan 150200099
+
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -432,11 +434,12 @@ class NetworkTopologyGUI:
 
             # Calculate algorithm runtime in milliseconds
             runtime_ms = (end_time - start_time) * 1000
+            delay = self.network.routing_table[int(source)][int(destination)]*(random.random() + 1)
 
             # Display various algorithm metrics in the metrics window
-            tk.Label(metrics_frame, text=f"Packet Transmission Delay (End-to-End): {self.network.routing_table[int(source)][int(destination)]*(random.random() + 0.7)} milliseconds").pack()
+            tk.Label(metrics_frame, text=f"Packet Transmission Delay (End-to-End): {round(delay, 6)} milliseconds").pack()
             tk.Label(metrics_frame, text=f"Total Cost of the Path Chosen: {self.network.routing_table[int(source)][int(destination)]}").pack()
-            tk.Label(metrics_frame, text=f"Run Time of the Algorithm: {runtime_ms:.6f} milliseconds").pack()
+            tk.Label(metrics_frame, text=f"Run Time of the Algorithm: {round(runtime_ms, 6)} milliseconds").pack()
             tk.Label(metrics_frame, text=f"Number of Hop Counts (End-to-End): {len(forwarding_edges)}").pack()
 
             # Create a frame in the metrics window to display the forwarding table
@@ -454,11 +457,12 @@ class NetworkTopologyGUI:
                                                                                                                 num_hopes=len(forwarding_edges),
                                                                                                                 source=source,
                                                                                                                 destination=destination,
-                                                                                                                algorithm=algorithm))
+                                                                                                                algorithm=algorithm,
+                                                                                                                delay=delay))
             save_button.pack(side=tk.BOTTOM)
 
 
-    def save_metrics_to_file(self, source, destination, runtime, num_hopes, algorithm):
+    def save_metrics_to_file(self, source, destination, runtime, num_hopes, algorithm, delay):
         # Determine the output file name based on the selected algorithm
         out_file_name = "link_state_routing_algorithm_metrics.txt" if algorithm == "Link State Routing" else "distance_vector_routing_algorithm_metrics.txt"
 
@@ -472,7 +476,7 @@ class NetworkTopologyGUI:
 
             file.write("\n")    
 
-            file.write("Routing:\n")
+            file.write("Routing Tables:\n")
             
             # Write the network's adjacency matrix to the file
             for node, routing_info in self.network.routing_table.items():
@@ -488,11 +492,10 @@ class NetworkTopologyGUI:
             # Write various routing metrics to the file
             file.write("\n")
             file.write(f"Source Node: {source}\n")
-            file.write(f"Destination Node: {destination}\n")
-            delay = self.network.routing_table[int(source)][int(destination)]*(random.random() + 0.7)           
-            file.write(f"Packet Transmission Delay (End-to-End): {delay:.6f} milliseconds\n")
+            file.write(f"Destination Node: {destination}\n")      
+            file.write(f"Packet Transmission Delay (End-to-End): {round(delay, 6)} milliseconds\n")
             file.write(f"Total Cost of the Path Chosen: {self.network.routing_table[int(source)][int(destination)]}\n")
-            file.write(f"Run Time of the Algorithm: {runtime:.6f} milliseconds\n")
+            file.write(f"Run Time of the Algorithm: {round(runtime, 6)} milliseconds\n")
             file.write(f"Number of Hop Counts (End-to-End): {num_hopes}\n")
 
     def exit_application(self):
