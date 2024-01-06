@@ -79,7 +79,21 @@ class NetworkTopology:
                     G.add_edge(i, j, weight=self.adjacency_matrix[i][j])
 
         return G
+    
+    def visualize_route(self, source, destination):
+        G = nx.Graph()
+        for dst in range(self.num_nodes):
+            edge_color = 'red' if dst == destination else 'black'
+            if dst != source:
+                start = source
+                next_node = self.forwarding_table[source][dst]
+                while next_node != dst:
+                    G.add_edge(start, next_node, weight=self.adjacency_matrix[start][next_node], color=edge_color)
+                    start =  next_node
+                    next_node = self.forwarding_table[next_node][dst]
+                G.add_edge(start, next_node, weight=self.adjacency_matrix[start][next_node], color=edge_color)
 
+        return G
 
 class NetworkTopologyGUI:
     def __init__(self, root):
@@ -104,6 +118,14 @@ class NetworkTopologyGUI:
         self.create_topology_button = tk.Button(self.root, text="Create Topology", command=self.generate_topology, state=tk.DISABLED)
         self.create_topology_button.pack()
 
+        # Add Link State Routing button (initially disabled)
+        self.link_state_button = tk.Button(self.root, text="Link State Routing", command=self.link_state_routing, state=tk.DISABLED)
+        self.link_state_button.pack()
+
+        # Add Distance Vector Routing button (initially disabled)
+        self.distance_vector_button = tk.Button(self.root, text="Distance Vector Routing", command=self.distance_vector_routing, state=tk.DISABLED)
+        self.distance_vector_button.pack()
+
         self.root.protocol("WM_DELETE_WINDOW", self.exit_application)
 
     def validate_input(self, event):
@@ -123,8 +145,9 @@ class NetworkTopologyGUI:
 
         self.network = NetworkTopology(self.num_nodes)
 
-        self.network.calculate_routing_table()
-        self.network.generate_forwarding_table()
+        # Enable Link State Routing and Distance Vector Routing buttons
+        self.link_state_button['state'] = tk.NORMAL
+        self.distance_vector_button['state'] = tk.NORMAL
 
         self.visualize_network()
 
@@ -140,6 +163,33 @@ class NetworkTopologyGUI:
             self.canvas = FigureCanvasTkAgg(plt.gcf(), master=self.root)
             self.canvas.draw()
             self.canvas.get_tk_widget().pack()
+
+    def link_state_routing(self):
+        self.network.generate_forwarding_table()
+        # Print Forwarding Table
+        for node, routing_table in self.network.routing_table.items():
+            print(f"Routing Table for Node {node}: {routing_table}")
+
+        # Print Forwarding Table
+        for node, forwarding_info in self.network.forwarding_table.items():
+            print(f"Forwarding Table for Node {node}: {forwarding_info}")
+
+        if self.network:
+            G = self.network.visualize_route(0, 4)
+
+            plt.figure()
+            pos = nx.spring_layout(G)
+            labels = nx.get_edge_attributes(G, 'weight')
+            nx.draw(G, pos, with_labels=True)
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+            self.canvas = FigureCanvasTkAgg(plt.gcf(), master=self.root)
+            self.canvas.draw()
+            self.canvas.get_tk_widget().pack()
+
+
+    def distance_vector_routing(self):
+        # Implement functionality for Distance Vector Routing
+        pass
 
     def exit_application(self):
         if self.canvas:
