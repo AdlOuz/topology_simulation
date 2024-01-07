@@ -164,14 +164,17 @@ class NetworkTopology:
                 if dest != src:  # Skip setting forwarding for the same source and destination nodes
                     next_hop = None  # Initialize the next hop for routing
                     
-                    # Check for possible intermediate nodes for forwarding
-                    for intermediate_node in available_nodes:
-                        # If the destination is equal to the intermediate node skip it since self.routing_table[intermediate_node][dest] will be zero and mess wtih the algorithm
-                        if intermediate_node != dest:
-                            # Check if the intermediate node helps in forwarding to the destination
-                            if self.routing_table[src][intermediate_node] + self.routing_table[intermediate_node][dest] == self.routing_table[src][dest]:
-                                next_hop = intermediate_node  # Set the intermediate node as the next hop
-                                break
+                    # If the shortest path is direct access choose that over the what could be same a cost route. Example choose a-4-b rather then a-3-c-1-b. 
+                    # Reason being that if the intermediate node is equal to the destination we bypass it for the reason explained above it 
+                    if self.routing_table[src][dest] != self.adjacency_matrix[src][dest]:
+                        # Check for possible intermediate nodes for forwarding
+                        for intermediate_node in available_nodes:
+                            # If the destination is equal to the intermediate node skip it since self.routing_table[intermediate_node][dest] will be zero and mess wtih the algorithm
+                            if intermediate_node != dest:
+                                # Check if the intermediate node helps in forwarding to the destination
+                                if self.routing_table[src][intermediate_node] + self.routing_table[intermediate_node][dest] == self.routing_table[src][dest]:
+                                    next_hop = intermediate_node  # Set the intermediate node as the next hop
+                                    break
                     
                     # Set the forwarding based on whether a next hop is found or not
                     if next_hop is None:
@@ -434,7 +437,9 @@ class NetworkTopologyGUI:
 
             # Calculate algorithm runtime in milliseconds
             runtime_ms = (end_time - start_time) * 1000
-            delay = self.network.routing_table[int(source)][int(destination)]*(random.random() + 1)
+            # Calculate delay in milliseconds
+            delay = self.network.routing_table[int(source)][int(destination)]*1.3 + len(forwarding_edges)*1.7
+            delay = delay * (random.random()/10 + 0.95)
 
             # Display various algorithm metrics in the metrics window
             tk.Label(metrics_frame, text=f"Packet Transmission Delay (End-to-End): {round(delay, 6)} milliseconds").pack()
